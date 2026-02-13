@@ -39,7 +39,23 @@ def update_database():
 
     for page in pages:
         props = page["properties"]
-        ticker = props["Ticker"]["rich_text"][0]["text"]["content"]
+        ticker_prop = props.get("Ticker", {})
+
+ticker = None
+if ticker_prop.get("type") == "rich_text":
+    if ticker_prop["rich_text"]:
+        ticker = ticker_prop["rich_text"][0]["plain_text"]
+
+elif ticker_prop.get("type") == "title":
+    if ticker_prop["title"]:
+        ticker = ticker_prop["title"][0]["plain_text"]
+
+elif ticker_prop.get("type") == "text":
+    ticker = ticker_prop.get("plain_text")
+
+if not ticker:
+    continue
+
         price = get_stock_price(ticker)
 
         update_url = f"https://api.notion.com/v1/pages/{page['id']}"
