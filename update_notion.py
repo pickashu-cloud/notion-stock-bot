@@ -34,8 +34,26 @@ def debug_database():
 
 def get_stock_price(symbol):
     url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}"
-    r = requests.get(url).json()
-    return r["quoteResponse"]["result"][0]["regularMarketPrice"]
+    r = requests.get(
+        url,
+        timeout=20,
+        headers={"User-Agent": "Mozilla/5.0"}  # กันโดนปัดตกง่าย ๆ
+    )
+
+    if r.status_code != 200:
+        raise RuntimeError(f"Yahoo HTTP {r.status_code}: {r.text[:200]}")
+
+    try:
+        data = r.json()
+    except Exception:
+        raise RuntimeError(f"Yahoo returned non-JSON: {r.text[:200]}")
+
+    result = data.get("quoteResponse", {}).get("result", [])
+    if not result or result[0].get("regularMarketPrice") is None:
+        raise RuntimeError(f"No price for {symbol}: {data}")
+
+    return result[0]["regularMarketPrice"]
+
 
 def query_any(id_):
     # ลอง query เป็น database ก่อน
@@ -76,7 +94,6 @@ def update_database():
             if tt:
                 ticker = tt[0].get("plain_text")
 
-        # เผื่อกรณีเป็น plain_text ตรง ๆ (บางรูปแบบ/บอทอื่น)
         elif "plain_text" in ticker_prop:
             ticker = ticker_prop.get("plain_text")
 
@@ -87,12 +104,18 @@ def update_database():
         if not ticker:
             continue
 
-        price = get_stock_price(ticker)
+        # 👇 ตรงนี้แหละที่ใส่ try/except
+        try:
+            price = get_stock_price(ticker)
+        except Exception as e:
+            print("Price fetch failed:", ticker, e)
+            continue
 
         update_url = f"https://api.notion.com/v1/pages/{page['id']}"
         body = {"properties": {"Price": {"number": price}}}
         requests.patch(update_url, headers=headers, json=body)
         print(ticker, price)
+
 
 
 if __name__ == "__main__":
