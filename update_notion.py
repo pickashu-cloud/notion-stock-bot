@@ -10,6 +10,28 @@ headers = {
     "Notion-Version": "2022-06-28"
 }
 
+def debug_database():
+    # 1) ตรวจว่า ID นี้เป็น "database" จริงและเราเข้าถึงได้
+    r = requests.get(f"https://api.notion.com/v1/databases/{DATABASE_ID}", headers=headers)
+    print("GET database:", r.status_code)
+    if r.status_code != 200:
+        print(r.text)
+        return False
+
+    title = r.json().get("title", [])
+    name = title[0].get("plain_text") if title else "(no title)"
+    print("Database title:", name)
+
+    # 2) ลอง query แล้วพิมพ์จำนวนแถวที่เห็น
+    r2 = requests.post(f"https://api.notion.com/v1/databases/{DATABASE_ID}/query", headers=headers)
+    print("QUERY database:", r2.status_code)
+    if r2.status_code != 200:
+        print(r2.text)
+        return False
+
+    print("Rows visible:", len(r2.json().get("results", [])))
+    return True
+
 def get_stock_price(symbol):
     url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}"
     r = requests.get(url).json()
@@ -74,4 +96,6 @@ def update_database():
 
 
 if __name__ == "__main__":
-    update_database()
+    if debug_database():
+        update_database()
+
