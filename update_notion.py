@@ -38,23 +38,32 @@ def update_database():
     pages = query_any(DATABASE_ID)
 
     for page in pages:
-        props = page["properties"]
+        props = page.get("properties", {})
         ticker_prop = props.get("Ticker", {})
 
-ticker = None
-if ticker_prop.get("type") == "rich_text":
-    if ticker_prop["rich_text"]:
-        ticker = ticker_prop["rich_text"][0]["plain_text"]
+        ticker = None
+        ptype = ticker_prop.get("type")
 
-elif ticker_prop.get("type") == "title":
-    if ticker_prop["title"]:
-        ticker = ticker_prop["title"][0]["plain_text"]
+        if ptype == "rich_text":
+            rt = ticker_prop.get("rich_text", [])
+            if rt:
+                ticker = rt[0].get("plain_text")
 
-elif ticker_prop.get("type") == "text":
-    ticker = ticker_prop.get("plain_text")
+        elif ptype == "title":
+            tt = ticker_prop.get("title", [])
+            if tt:
+                ticker = tt[0].get("plain_text")
 
-if not ticker:
-    continue
+        # เผื่อกรณีเป็น plain_text ตรง ๆ (บางรูปแบบ/บอทอื่น)
+        elif "plain_text" in ticker_prop:
+            ticker = ticker_prop.get("plain_text")
+
+        if not ticker:
+            continue
+
+        ticker = ticker.strip()
+        if not ticker:
+            continue
 
         price = get_stock_price(ticker)
 
@@ -62,6 +71,7 @@ if not ticker:
         body = {"properties": {"Price": {"number": price}}}
         requests.patch(update_url, headers=headers, json=body)
         print(ticker, price)
+
 
 if __name__ == "__main__":
     update_database()
